@@ -1982,17 +1982,17 @@ Elm.Elman.make = function (_elm) {
    var Pos$ = F2(function (a,b) {
       return _U.insert("pos",a,b);
    });
-   var DiedSt = function (a) {
-      return {ctor: "DiedSt"
-             ,_0: a};
-   };
    var PlaySt = function (a) {
       return {ctor: "PlaySt"
              ,_0: a};
    };
-   var InitSt = {ctor: "InitSt"};
-   var init = InitSt;
-   var Died = function (a) {
+   var InitSt = function (a) {
+      return {ctor: "InitSt"
+             ,_0: a};
+   };
+   var init = InitSt({_: {}
+                     ,score: $Maybe.Nothing});
+   var Init = function (a) {
       return {_: {},score: a};
    };
    var Play = F8(function (a,
@@ -2238,11 +2238,7 @@ Elm.Elman.make = function (_elm) {
    var update = F2(function (input,
    state) {
       switch (state.ctor)
-      {case "DiedSt":
-         switch (input.ctor)
-           {case "Space": return InitSt;}
-           return state;
-         case "InitSt":
+      {case "InitSt":
          switch (input.ctor)
            {case "Space":
               return PlaySt({_: {}
@@ -2259,12 +2255,12 @@ Elm.Elman.make = function (_elm) {
                             ,score: 0
                             ,seed: $Random.initialSeed(3141592)
                             ,tick: 0});}
-           return InitSt;
+           return state;
          case "PlaySt":
          return function (play) {
               return _U.eq(play.lives,
-              0) ? DiedSt({_: {}
-                          ,score: play.score}) : PlaySt(play);
+              0) ? InitSt({_: {}
+                          ,score: $Maybe.Just(play.score)}) : PlaySt(play);
            }($StateM.run(function () {
               switch (input.ctor)
               {case "Arrows":
@@ -2320,14 +2316,25 @@ Elm.Elman.make = function (_elm) {
       gameDim,
       2)))(function () {
          switch (state.ctor)
-         {case "DiedSt":
+         {case "InitSt":
             return _L.fromArray([viewBack
-                                ,$Graphics$Collage.text($Text.fromString(A2($Basics._op["++"],
-                                "Final score ",
-                                $Basics.toString(state._0.score))))]);
-            case "InitSt":
-            return _L.fromArray([viewBack
-                                ,$Graphics$Collage.text($Text.fromString("Get Ready!"))]);
+                                ,$Graphics$Collage.text($Text.fromString("Press SPACE to start!"))
+                                ,function () {
+                                   var _v27 = state._0.score;
+                                   switch (_v27.ctor)
+                                   {case "Just":
+                                      return $XY.move({_: {}
+                                                      ,x: 0
+                                                      ,y: -30})($Graphics$Collage.text($Text.fromString(A2($Basics._op["++"],
+                                        "Previous player got ",
+                                        A2($Basics._op["++"],
+                                        $Basics.toString(_v27._0),
+                                        " points.")))));
+                                      case "Nothing":
+                                      return $Graphics$Collage.group(_L.fromArray([]));}
+                                   _U.badCase($moduleName,
+                                   "bugs in reporting the exact location right now");
+                                }()]);
             case "PlaySt":
             return _L.fromArray([viewBack
                                 ,$Graphics$Collage.group($List.map(viewSprite)(state._0.berries))
@@ -2348,10 +2355,9 @@ Elm.Elman.make = function (_elm) {
                        ,Space: Space
                        ,Tick: Tick
                        ,Play: Play
-                       ,Died: Died
+                       ,Init: Init
                        ,InitSt: InitSt
                        ,PlaySt: PlaySt
-                       ,DiedSt: DiedSt
                        ,Pos$: Pos$
                        ,Dim$: Dim$
                        ,Spd$: Spd$
