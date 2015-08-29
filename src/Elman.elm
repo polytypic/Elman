@@ -47,13 +47,12 @@ type alias Play =
   , seed: Random.Seed
   , level: Int }
 
-type alias Died =
-  { score: Int }
+type alias Init =
+  { score: Maybe Int }
 
 type State
-  = InitSt
+  = InitSt Init
   | PlaySt Play
-  | DiedSt Died
 
 type alias Player = Pos' (Dim' (Rot' (Form' (Spd' {}))))
 type alias Ghost = Pos' (Dim' (Rot' (Form' (Spd' {nextAt: Int}))))
@@ -143,7 +142,7 @@ playerForms =
 --------------------------------------------------------------------------------
 
 init: State
-init = InitSt
+init = InitSt {score = Nothing}
 
 --------------------------------------------------------------------------------
 
@@ -271,7 +270,7 @@ updateGhostsM =
 update: Event -> State -> State
 update input state =
   case state of
-    InitSt ->
+    InitSt init ->
       case input of
         Space _ ->
           PlaySt { player = { pos = {x = 0, y = 0}
@@ -287,7 +286,7 @@ update input state =
                  , seed = Random.initialSeed 3141592
                  , level = 5 }
         _ ->
-          InitSt
+          state
     PlaySt play ->
       play
       |> StateM.run (case input of
@@ -304,15 +303,9 @@ update input state =
                          >>. updateBerriesM)
       |> \play ->
            if play.lives == 0 then
-             DiedSt {score = play.score}
+             InitSt {score = Just play.score}
            else
              PlaySt play
-    DiedSt {score} ->
-      case input of
-        Space _ ->
-          InitSt
-        _ ->
-          state
 
 --------------------------------------------------------------------------------
 
@@ -347,18 +340,21 @@ viewScoreAndLives state =
 view: State -> Element
 view state =
   (case state of
-     InitSt ->
+     InitSt {score} ->
        [ viewBack
-       , Text.fromString "Get Ready!" |> Collage.text ]
+       , Text.fromString "Press SPACE to start!" |> Collage.text
+       , case score of
+           Nothing -> Collage.group []
+           Just score ->
+             Text.fromString ("Previous player got " ++ toString score ++ " points.")
+             |> Collage.text
+             |> XY.move {x = 0, y = -30}]
      PlaySt play ->
        [ viewBack
        , play.berries |> List.map viewSprite |> Collage.group
        , play.player |> viewSprite
        , play.ghosts |> List.map viewSprite |> Collage.group
-       , play |> viewScoreAndLives ]
-     DiedSt {score} ->
-       [ viewBack
-       , Text.fromString ("Final score " ++ toString score) |> Collage.text ])
+       , play |> viewScoreAndLives ])
   |> XY.curryTo Collage.collage (XY.map round (gameDim |* 2))
   |> XY.curryTo Element.container (XY.map round (gameDim |* 2)) Element.middle
 
