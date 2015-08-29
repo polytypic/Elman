@@ -3,16 +3,16 @@ module Elman where
 import Array exposing (Array)
 import Bitwise
 import Color exposing (Color)
-import Graphics.Collage exposing (..)
-import Graphics.Element exposing (..)
+import Graphics.Collage as Collage exposing (Form)
+import Graphics.Element as Element exposing (Element)
 import Keyboard
 import Random
 import Signal exposing ((<~), (~))
 import Signals
 import Text
 import Time exposing (Time)
-import XY exposing (..)
-import StateM exposing (StateM, (>>=), (>>.), (>=>), (:=), (:>), delay, get, getState, return, run, set, upd, updM, when)
+import XY exposing (XY, (|*), (|*|), (|-|), (|+|), (|<|))
+import StateM exposing (StateM, (>>=), (>>.), (>=>), (:=), (:>))
 import Lens exposing (Lens, (=>))
 
 --------------------------------------------------------------------------------
@@ -99,10 +99,10 @@ posL = {get = .pos, set = \r x -> {r | pos <- x}}
 
 rnd: Random.Generator x -> StateM {s | seed: Random.Seed} x
 rnd xG =
-  get seedL >>=
+  StateM.get seedL >>=
   Random.generate xG >> \(x, s) ->
   seedL := s >>= \() ->
-  return x
+  StateM.return x
 
 --------------------------------------------------------------------------------
 
@@ -138,7 +138,7 @@ playerForms =
   , "web/gfx/Elman-1.png"
   , "web/gfx/Elman-2.png"
   , "web/gfx/Elman-1.png" ]
- |> List.map (image 32 32 >> toForm) |> Array.fromList
+ |> List.map (Element.image 32 32 >> Collage.toForm) |> Array.fromList
 
 --------------------------------------------------------------------------------
 
@@ -149,7 +149,7 @@ init = InitSt
 
 updateArrowsM: Dir -> StateM Play ()
 updateArrowsM dir =
-  upd playerL <| \player ->
+  StateM.upd playerL <| \player ->
   { player
   | spd <- dir |* 4
   , rot <- if dir.x == 0 && dir.y == 0
@@ -159,7 +159,7 @@ updateArrowsM dir =
 --
 
 berryForm: Form
-berryForm = image 32 32 "web/gfx/Strawberry.png" |> toForm
+berryForm = Element.image 32 32 "web/gfx/Strawberry.png" |> Collage.toForm
 
 ghostForms: Array Form
 ghostForms =
@@ -167,12 +167,12 @@ ghostForms =
   , "web/gfx/Ghost-Green-1.png"
   , "web/gfx/Ghost-Green-2.png"
   , "web/gfx/Ghost-Green-3.png" ]
- |> List.map (image 32 32 >> toForm) |> Array.fromList
+ |> List.map (Element.image 32 32 >> Collage.toForm) |> Array.fromList
 
 updateLevelM: StateM Play ()
 updateLevelM =
-  getState >>= \{berries, level} ->
-  List.isEmpty berries `when` \() ->
+  StateM.getState >>= \{berries, level} ->
+  List.isEmpty berries `StateM.when` \() ->
      let gxys = Random.pair
                   (Random.float -gameDim.x gameDim.x)
                   (Random.float -gameDim.y gameDim.y)
@@ -191,7 +191,7 @@ updateLevelM =
            , rot = 0
            , form = Nothing
            , nextAt = 10 } in
-     upd levelL ((+) 1) >>.
+     StateM.upd levelL ((+) 1) >>.
      berriesL := (berryXYs |> List.map berry) >>.
      ghostsL := (ghostXYs |> List.map ghost)
 
@@ -215,12 +215,12 @@ updatePhysicsM =
 
 updatePlayerM: StateM Play ()
 updatePlayerM =
-  getState >>= \{player, tick, ghosts} ->
+  StateM.getState >>= \{player, tick, ghosts} ->
   let wrapped = wrappedPos player in
   playerL => formL := (let n = Array.length playerForms in
                        Array.get (tick // 4 % n) playerForms) >>.
   (ghosts
-   |> List.any (\ghost -> List.any (collides ghost) wrapped)) `when` \() ->
+   |> List.any (\ghost -> List.any (collides ghost) wrapped)) `StateM.when` \() ->
     livesL :> (+) -1 >>.
     playerL => posL := {x = 0, y = 0}
 
@@ -232,37 +232,37 @@ collides l r =
 
 updateBerriesM: StateM Play ()
 updateBerriesM =
-  getState >>= \{player} ->
+  StateM.getState >>= \{player} ->
   let players = wrappedPos player in
-  updM berriesL <| StateM.filterM <| \berry ->
+  StateM.updM berriesL <| StateM.filterM <| \berry ->
   if List.any (collides berry) players
   then scoreL :> (+) 1 >>.
-       return False
-  else return True
+       StateM.return False
+  else StateM.return True
 
 --
 
 updateGhostsM: StateM Play ()
 updateGhostsM =
-  getState >>= \{player, tick} ->
-  updM ghostsL <| StateM.mapM <| \g ->
+  StateM.getState >>= \{player, tick} ->
+  StateM.updM ghostsL <| StateM.mapM <| \g ->
   let form = ghostForms
              |> Array.get (Bitwise.xor
                             (if player.pos.x < g.pos.x then 0 else 1)
                             (if player.pos.y < g.pos.y then 0 else 3)) in
   if tick < g.nextAt then
-    return { g | form <- form }
+    { g | form <- form } |> StateM.return
   else
     Random.int 0 3 |> rnd >>= \d ->
     Random.int 20 50 |> rnd >>= \t ->
     Random.float 1 6 |> rnd >>= \s ->
-    return { g
-           | nextAt <- tick + t
-           , form <- form
-           , spd <- if | d == 0    -> {x =-s, y = 0}
-                       | d == 1    -> {x = 0, y =-s}
-                       | d == 2    -> {x = s, y = 0}
-                       | otherwise -> {x = 0, y = s} }
+    { g
+    | nextAt <- tick + t
+    , form <- form
+    , spd <- if | d == 0    -> {x =-s, y = 0}
+                | d == 1    -> {x = 0, y =-s}
+                | d == 2    -> {x = s, y = 0}
+                | otherwise -> {x = 0, y = s} } |> StateM.return
 
 --
 
@@ -290,18 +290,18 @@ update input state =
           InitSt
     PlaySt play ->
       play
-      |> run (case input of
-                Space _ ->
-                  return ()
-                Arrows dir ->
-                  updateArrowsM dir
-                Tick _  ->
-                  updateLevelM
-                  >>. updateTickM
-                  >>. updatePlayerM
-                  >>. updateGhostsM
-                  >>. updatePhysicsM
-                  >>. updateBerriesM)
+      |> StateM.run (case input of
+                       Space _ ->
+                         StateM.return ()
+                       Arrows dir ->
+                         updateArrowsM dir
+                       Tick _  ->
+                         updateLevelM
+                         >>. updateTickM
+                         >>. updatePlayerM
+                         >>. updateGhostsM
+                         >>. updatePhysicsM
+                         >>. updateBerriesM)
       |> \play ->
            if play.lives == 0 then
              DiedSt {score = play.score}
@@ -318,21 +318,21 @@ update input state =
 
 viewBack: Form
 viewBack =
-  XY.curryTo rect (gameDim |* 2)
-  |> filled backColor
+  XY.curryTo Collage.rect (gameDim |* 2)
+  |> Collage.filled backColor
 
 maybeGroup: List Form -> Form
 maybeGroup fs =
   case fs of
     [f] -> f
-    _ -> group fs
+    _ -> Collage.group fs
 
 viewSprite: Pos' (Dim' (Rot' (Form' s))) -> Form
 viewSprite sprite =
   case sprite.form of
-    Nothing -> group []
+    Nothing -> Collage.group []
     Just form ->
-      let rotf = rotate sprite.rot form in
+      let rotf = Collage.rotate sprite.rot form in
       wrappedPos sprite
       |> List.map (\s -> XY.move s.pos rotf)
       |> maybeGroup
@@ -341,7 +341,7 @@ viewScoreAndLives: Play -> Form
 viewScoreAndLives state =
   ("Score " ++ toString state.score ++ " - Lives " ++ toString state.lives)
   |> Text.fromString
-  |> text
+  |> Collage.text
   |> XY.move {x = 0, y = gameDim.y - 32}
 
 view: State -> Element
@@ -349,18 +349,18 @@ view state =
   (case state of
      InitSt ->
        [ viewBack
-       , Text.fromString "Get Ready!" |> text ]
+       , Text.fromString "Get Ready!" |> Collage.text ]
      PlaySt play ->
        [ viewBack
-       , play.berries |> List.map viewSprite |> group
+       , play.berries |> List.map viewSprite |> Collage.group
        , play.player |> viewSprite
-       , play.ghosts |> List.map viewSprite |> group
+       , play.ghosts |> List.map viewSprite |> Collage.group
        , play |> viewScoreAndLives ]
      DiedSt {score} ->
        [ viewBack
-       , Text.fromString ("Final score " ++ toString score) |> text ])
-  |> XY.curryTo collage (XY.map round (gameDim |* 2))
-  |> XY.curryTo container (XY.map round (gameDim |* 2)) middle
+       , Text.fromString ("Final score " ++ toString score) |> Collage.text ])
+  |> XY.curryTo Collage.collage (XY.map round (gameDim |* 2))
+  |> XY.curryTo Element.container (XY.map round (gameDim |* 2)) Element.middle
 
 --------------------------------------------------------------------------------
 
