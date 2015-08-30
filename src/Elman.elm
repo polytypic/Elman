@@ -23,7 +23,6 @@ gameDim = {x = 960, y = 540} |* 0.5
 gameFps: Int
 gameFps = 30
 
-
 gracePeriod: Int
 gracePeriod = gameFps * 2
 
