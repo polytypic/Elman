@@ -374,7 +374,7 @@ state =
 
 input: Signal Event
 input =
-  [ (XY.map toFloat >> Arrows) <~ Keyboard.arrows
+  [ Arrows << XY.map toFloat <~ Keyboard.arrows
   , Space <~ Keyboard.space
   , Tick <~ Time.fps 30 ]
   |> Signal.mergeMany
