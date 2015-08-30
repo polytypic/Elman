@@ -101,3 +101,6 @@ delay u2xS s = u2xS () s
 
 when: Bool -> (() -> StateM s ()) -> StateM s ()
 when b uS = if b then uS () else return ()
+
+repeat: StateM s () -> Int -> StateM s ()
+repeat uS n = if 0 < n then uS >>. repeat uS (n-1) else return ()

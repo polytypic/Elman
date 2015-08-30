@@ -42,8 +42,7 @@ type alias Play =
         , berries: List Berry
         , score: Int
         , lives: Int
-        , tick: Int
-        , level: Int }
+        , tick: Int }
 
 type alias Init =
   Seed' { score: Maybe Int }
@@ -80,9 +79,6 @@ scoreL = {get = .score, set = \r x -> {r | score <- x}}
 tickL: Lens {r | tick: tick} tick
 tickL = {get = .tick, set = \r x -> {r | tick <- x}}
 
-levelL: Lens {r | level: level} level
-levelL = {get = .level, set = \r x -> {r | level <- x}}
-
 livesL: Lens {r | lives: lives} lives
 livesL = {get = .lives, set = \r x -> {r | lives <- x}}
 
@@ -94,6 +90,8 @@ formL = {get = .form, set = \r x -> {r | form <- x}}
 
 posL: Lens {r | pos: pos} pos
 posL = {get = .pos, set = \r x -> {r | pos <- x}}
+
+--------------------------------------------------------------------------------
 
 rnd: Random.Generator x -> StateM {s | seed: Random.Seed} x
 rnd xG =
@@ -162,31 +160,36 @@ ghostForms =
   , "web/gfx/Ghost-Green-3.png" ]
  |> List.map (Element.image 32 32 >> Collage.toForm) |> Array.fromList
 
+gxy: Random.Generator (Float, Float)
+gxy =
+  Random.pair
+    (Random.float -gameDim.x gameDim.x)
+    (Random.float -gameDim.y gameDim.y)
+
+addGhostM: StateM Play ()
+addGhostM =
+  rnd gxy >>= \(x, y) ->
+  StateM.upd ghostsL ((::) { pos = {x = x, y = y}
+                           , spd = {x = 0, y = 0}
+                           , dim = {x = 16, y = 16}
+                           , rot = 0
+                           , form = Nothing
+                           , nextAt = 0 })
+
+addBerryM: StateM Play ()
+addBerryM =
+  rnd gxy >>= \(x, y) ->
+  StateM.upd berriesL ((::) { pos = {x = x, y = y}
+                            , dim = {x = 16, y = 16}
+                            , form = Just berryForm
+                            , rot = 0 })
+
 updateLevelM: StateM Play ()
 updateLevelM =
-  StateM.getState >>= \{berries, level} ->
+  StateM.getState >>= \{berries} ->
   List.isEmpty berries `StateM.when` \() ->
-     let gxys = Random.pair
-                  (Random.float -gameDim.x gameDim.x)
-                  (Random.float -gameDim.y gameDim.y)
-                |> Random.list level in
-     rnd gxys >>= \berryXYs ->
-     rnd gxys >>= \ghostXYs ->
-     let berry (x, y) =
-           { pos = {x = x, y = y}
-           , dim = {x = 16, y = 16}
-           , form = Just berryForm
-           , rot = 0 }
-         ghost (x, y) =
-           { pos = {x = x, y = y}
-           , spd = {x = 0, y = 0}
-           , dim = {x = 16, y = 16}
-           , rot = 0
-           , form = Nothing
-           , nextAt = 10 } in
-     StateM.upd levelL ((+) 1) >>.
-     berriesL := (berryXYs |> List.map berry) >>.
-     ghostsL := (ghostXYs |> List.map ghost)
+    addGhostM >>.
+    StateM.get ghostsL >>= (List.length >> StateM.repeat addBerryM)
 
 --
 
@@ -259,8 +262,6 @@ updateGhostsM =
 
 --
 
-
-
 update: Event -> State -> State
 update input state =
   case state of
@@ -277,9 +278,8 @@ update input state =
           , score = 0
           , lives = 3
           , tick = 0
-          , seed = init.seed
-          , level = 5 }
-          |> StateM.run updateLevelM
+          , seed = init.seed }
+          |> StateM.run (StateM.repeat addGhostM 4)
           |> PlaySt
         _ ->
           init
@@ -346,7 +346,8 @@ view state =
        , case score of
            Nothing -> Collage.group []
            Just score ->
-             Text.fromString ("Previous player got " ++ toString score ++ " points.")
+             ("Previous player got " ++ toString score ++ " points.")
+             |> Text.fromString
              |> Collage.text
              |> XY.move {x = 0, y = -30}]
      PlaySt play ->
