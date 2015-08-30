@@ -350,7 +350,7 @@ viewSprite sprite =
 
 viewScoreAndLives: Play -> Form
 viewScoreAndLives state =
-  ("Score " ++ toString state.score ++ " - Lives " ++ toString state.lives)
+  "Score " ++ toString state.score ++ " - Lives " ++ toString state.lives
   |> Text.fromString
   |> Collage.text
   |> XY.move {x = 0, y = gameDim.y - 32}
@@ -364,7 +364,7 @@ view state =
        , case score of
            Nothing -> Collage.group []
            Just score ->
-             ("Previous player got " ++ toString score ++ " points.")
+             "Previous player got " ++ toString score ++ " points."
              |> Text.fromString
              |> Collage.text
              |> XY.move {x = 0, y = -30}]
