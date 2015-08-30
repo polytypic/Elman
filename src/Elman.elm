@@ -6,13 +6,14 @@ import Color exposing (Color)
 import Graphics.Collage as Collage exposing (Form)
 import Graphics.Element as Element exposing (Element)
 import Keyboard
+import Lens exposing (Lens, (=>))
+import Mouse
 import Random
 import Signal exposing ((<~), (~))
+import StateM exposing (StateM, (>>=), (>>.), (>=>), (:=), (:>))
 import Text
 import Time exposing (Time)
-import XY exposing (XY, (|*), (|*|), (|-|), (|+|), (|<|))
-import StateM exposing (StateM, (>>=), (>>.), (>=>), (:=), (:>))
-import Lens exposing (Lens, (=>))
+import XY exposing (XY, (|*), (|*|), (|/), (|-|), (|+|), (|<|))
 
 --------------------------------------------------------------------------------
 
@@ -38,6 +39,7 @@ type alias Dir = XY Float
 
 type Event
   = Arrows Dir
+  | Click Pos
   | Space Bool
   | Tick Time
 
@@ -149,6 +151,7 @@ playerForms =
 
 --------------------------------------------------------------------------------
 
+
 updateArrowsM: Dir -> StateM Play ()
 updateArrowsM dir =
   StateM.upd playerL <| \player ->
@@ -157,6 +160,17 @@ updateArrowsM dir =
   , rot <- if dir.x == 0 && dir.y == 0
            then player.rot
            else atan2 -dir.y -dir.x }
+
+updateClickM: Pos -> StateM Play ()
+updateClickM posRaw =
+  StateM.getState >>= \{player} ->
+  let pos = (posRaw |-| gameDim) |*| {x = 1, y = -1}
+      dir = pos |-| player.pos in
+  if XY.norm dir < 32*32 then
+    updateArrowsM {x = 0, y = 0}
+  else (dir |/ (dir |> XY.map abs |> XY.sumWith max))
+       |> XY.map (\e -> if abs e < 0.5 then 0 else e / abs e)
+       |> updateArrowsM
 
 --
 
@@ -283,22 +297,24 @@ update: Event -> State -> State
 update input state =
   case state of
     InitSt init ->
+      let begin () =
+            { player = { pos = {x = 0, y = 0}
+                       , spd = {x = 0, y = 0}
+                       , dim = {x = 16, y = 16}
+                       , rot = 0
+                       , form = Nothing }
+            , ghosts = []
+            , berries = []
+            , score = 0
+            , lives = 3
+            , tick = 0
+            , grace = gracePeriod
+            , seed = init.seed }
+            |> StateM.run (StateM.repeat addGhostM 4)
+            |> PlaySt in
       case input of
-        Space _ ->
-          { player = { pos = {x = 0, y = 0}
-                     , spd = {x = 0, y = 0}
-                     , dim = {x = 16, y = 16}
-                     , rot = 0
-                     , form = Nothing }
-          , ghosts = []
-          , berries = []
-          , score = 0
-          , lives = 3
-          , tick = 0
-          , grace = gracePeriod
-          , seed = init.seed }
-          |> StateM.run (StateM.repeat addGhostM 4)
-          |> PlaySt
+        Space _ -> begin ()
+        Click _ -> begin ()
         _ ->
           init
           |> StateM.run (Random.float 0 1 |> rnd >>= \_ ->
@@ -311,6 +327,8 @@ update input state =
                          StateM.return ()
                        Arrows dir ->
                          updateArrowsM dir
+                       Click pos ->
+                         updateClickM pos
                        Tick _  ->
                          updateLevelM
                          >>. updateTickM
@@ -394,6 +412,7 @@ state =
 input: Signal Event
 input =
   [ Arrows << XY.map toFloat <~ Keyboard.arrows
+  , Click << XY.map toFloat << XY.ofPair <~ Signal.sampleOn Mouse.clicks Mouse.position
   , Space <~ Keyboard.space
   , Tick <~ Time.fps gameFps ]
   |> Signal.mergeMany
