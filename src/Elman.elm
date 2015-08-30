@@ -19,6 +19,13 @@ import Lens exposing (Lens, (=>))
 gameDim: Dir
 gameDim = {x = 960, y = 540} |* 0.5
 
+gameFps: Int
+gameFps = 30
+
+
+gracePeriod: Int
+gracePeriod = gameFps * 2
+
 backColor: Color
 backColor = Color.rgb 255 160 214
 
@@ -42,7 +49,8 @@ type alias Play =
         , berries: List Berry
         , score: Int
         , lives: Int
-        , tick: Int }
+        , tick: Int
+        , grace: Int }
 
 type alias Init =
   Seed' { score: Maybe Int }
@@ -81,6 +89,9 @@ tickL = {get = .tick, set = \r x -> {r | tick <- x}}
 
 livesL: Lens {r | lives: lives} lives
 livesL = {get = .lives, set = \r x -> {r | lives <- x}}
+
+graceL: Lens {r | grace: grace} grace
+graceL = {get = .grace, set = \r x -> {r | grace <- x}}
 
 seedL: Lens {r | seed: seed} seed
 seedL = {get = .seed, set = \r x -> {r | seed <- x}}
@@ -211,14 +222,20 @@ updatePhysicsM =
 
 updatePlayerM: StateM Play ()
 updatePlayerM =
-  StateM.getState >>= \{player, tick, ghosts} ->
+  StateM.getState >>= \{player, tick, ghosts, grace} ->
+  StateM.set graceL (max 0 (grace - 1)) >>.
   let wrapped = wrappedPos player in
-  playerL => formL := (let n = Array.length playerForms in
-                       Array.get (tick // 4 % n) playerForms) >>.
-  (ghosts
-   |> List.any (\ghost -> List.any (collides ghost) wrapped)) `StateM.when` \() ->
+  playerL => formL :=
+    (let n = Array.length playerForms in
+     Array.get (tick // 4 % n) playerForms
+     |> Maybe.map (if Bitwise.and (grace // 4) 1 == 0
+                   then identity
+                   else Collage.scale 0.7)) >>.
+  (grace == 0 &&
+   (ghosts
+    |> List.any (\ghost -> List.any (collides ghost) wrapped))) `StateM.when` \() ->
     livesL :> (+) -1 >>.
-    playerL => posL := {x = 0, y = 0}
+    graceL := gracePeriod
 
 --
 
@@ -250,7 +267,7 @@ updateGhostsM =
     { g | form <- form } |> StateM.return
   else
     Random.int 0 3 |> rnd >>= \d ->
-    Random.int 20 50 |> rnd >>= \t ->
+    Random.int (gameFps // 2) (gameFps * 2) |> rnd >>= \t ->
     Random.float 1 6 |> rnd >>= \s ->
     { g
     | nextAt <- tick + t
@@ -278,6 +295,7 @@ update input state =
           , score = 0
           , lives = 3
           , tick = 0
+          , grace = gracePeriod
           , seed = init.seed }
           |> StateM.run (StateM.repeat addGhostM 4)
           |> PlaySt
@@ -353,8 +371,8 @@ view state =
      PlaySt play ->
        [ viewBack
        , play.berries |> List.map viewSprite |> Collage.group
-       , play.player |> viewSprite
        , play.ghosts |> List.map viewSprite |> Collage.group
+       , play.player |> viewSprite
        , play |> viewScoreAndLives ])
   |> XY.curryTo Collage.collage (XY.map round (gameDim |* 2))
   |> XY.curryTo Element.container (XY.map round (gameDim |* 2)) Element.middle
@@ -377,5 +395,5 @@ input: Signal Event
 input =
   [ Arrows << XY.map toFloat <~ Keyboard.arrows
   , Space <~ Keyboard.space
-  , Tick <~ Time.fps 30 ]
+  , Tick <~ Time.fps gameFps ]
   |> Signal.mergeMany
