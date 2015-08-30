@@ -1759,7 +1759,6 @@ Elm.Elman.make = function (_elm) {
    $Random = Elm.Random.make(_elm),
    $Result = Elm.Result.make(_elm),
    $Signal = Elm.Signal.make(_elm),
-   $Signals = Elm.Signals.make(_elm),
    $StateM = Elm.StateM.make(_elm),
    $Text = Elm.Text.make(_elm),
    $Time = Elm.Time.make(_elm),
@@ -1842,21 +1841,21 @@ Elm.Elman.make = function (_elm) {
          }($Random.generate(xG)($));
       });
    };
+   var graceL = {_: {}
+                ,get: function (_) {
+                   return _.grace;
+                }
+                ,set: F2(function (r,x) {
+                   return _U.replace([["grace"
+                                      ,x]],
+                   r);
+                })};
    var livesL = {_: {}
                 ,get: function (_) {
                    return _.lives;
                 }
                 ,set: F2(function (r,x) {
                    return _U.replace([["lives"
-                                      ,x]],
-                   r);
-                })};
-   var levelL = {_: {}
-                ,get: function (_) {
-                   return _.level;
-                }
-                ,set: F2(function (r,x) {
-                   return _U.replace([["level"
                                       ,x]],
                    r);
                 })};
@@ -1901,51 +1900,6 @@ Elm.Elman.make = function (_elm) {
                                        ,x]],
                     r);
                  })};
-   var updateGhostsM = A2($StateM._op[">>="],
-   $StateM.getState,
-   function (_v5) {
-      var $ = _v5,
-      player = $.player,
-      tick = $.tick;
-      return $StateM.updM(ghostsL)($StateM.mapM(function (g) {
-         var form = $Array.get(A2($Bitwise.xor,
-         _U.cmp(player.pos.x,
-         g.pos.x) < 0 ? 0 : 1,
-         _U.cmp(player.pos.y,
-         g.pos.y) < 0 ? 0 : 3))(ghostForms);
-         return _U.cmp(tick,
-         g.nextAt) < 0 ? $StateM.$return(_U.replace([["form"
-                                                     ,form]],
-         g)) : A2($StateM._op[">>="],
-         rnd(A2($Random.$int,0,3)),
-         function (d) {
-            return A2($StateM._op[">>="],
-            rnd(A2($Random.$int,20,50)),
-            function (t) {
-               return A2($StateM._op[">>="],
-               rnd(A2($Random.$float,1,6)),
-               function (s) {
-                  return $StateM.$return(_U.replace([["nextAt"
-                                                     ,tick + t]
-                                                    ,["form",form]
-                                                    ,["spd"
-                                                     ,_U.eq(d,0) ? {_: {}
-                                                                   ,x: 0 - s
-                                                                   ,y: 0} : _U.eq(d,
-                                                     1) ? {_: {}
-                                                          ,x: 0
-                                                          ,y: 0 - s} : _U.eq(d,
-                                                     2) ? {_: {}
-                                                          ,x: s
-                                                          ,y: 0} : {_: {}
-                                                                   ,x: 0
-                                                                   ,y: s}]],
-                  g));
-               });
-            });
-         });
-      }));
-   });
    var playerL = {_: {}
                  ,get: function (_) {
                     return _.player;
@@ -1982,6 +1936,9 @@ Elm.Elman.make = function (_elm) {
    var Pos$ = F2(function (a,b) {
       return _U.insert("pos",a,b);
    });
+   var Seed$ = F2(function (a,b) {
+      return _U.insert("seed",a,b);
+   });
    var PlaySt = function (a) {
       return {ctor: "PlaySt"
              ,_0: a};
@@ -1990,29 +1947,6 @@ Elm.Elman.make = function (_elm) {
       return {ctor: "InitSt"
              ,_0: a};
    };
-   var init = InitSt({_: {}
-                     ,score: $Maybe.Nothing});
-   var Init = function (a) {
-      return {_: {},score: a};
-   };
-   var Play = F8(function (a,
-   b,
-   c,
-   d,
-   e,
-   f,
-   g,
-   h) {
-      return {_: {}
-             ,berries: c
-             ,ghosts: b
-             ,level: h
-             ,lives: e
-             ,player: a
-             ,score: d
-             ,seed: g
-             ,tick: f};
-   });
    var Tick = function (a) {
       return {ctor: "Tick",_0: a};
    };
@@ -2023,6 +1957,59 @@ Elm.Elman.make = function (_elm) {
       return {ctor: "Arrows"
              ,_0: a};
    };
+   var backColor = A3($Color.rgb,
+   255,
+   160,
+   214);
+   var gameFps = 30;
+   var gracePeriod = gameFps * 2;
+   var updateGhostsM = A2($StateM._op[">>="],
+   $StateM.getState,
+   function (_v5) {
+      var $ = _v5,
+      player = $.player,
+      tick = $.tick;
+      return $StateM.updM(ghostsL)($StateM.mapM(function (g) {
+         var form = $Array.get(A2($Bitwise.xor,
+         _U.cmp(player.pos.x,
+         g.pos.x) < 0 ? 0 : 1,
+         _U.cmp(player.pos.y,
+         g.pos.y) < 0 ? 0 : 3))(ghostForms);
+         return _U.cmp(tick,
+         g.nextAt) < 0 ? $StateM.$return(_U.replace([["form"
+                                                     ,form]],
+         g)) : A2($StateM._op[">>="],
+         rnd(A2($Random.$int,0,3)),
+         function (d) {
+            return A2($StateM._op[">>="],
+            rnd(A2($Random.$int,
+            gameFps / 2 | 0,
+            gameFps * 2)),
+            function (t) {
+               return A2($StateM._op[">>="],
+               rnd(A2($Random.$float,1,6)),
+               function (s) {
+                  return $StateM.$return(_U.replace([["nextAt"
+                                                     ,tick + t]
+                                                    ,["form",form]
+                                                    ,["spd"
+                                                     ,_U.eq(d,0) ? {_: {}
+                                                                   ,x: 0 - s
+                                                                   ,y: 0} : _U.eq(d,
+                                                     1) ? {_: {}
+                                                          ,x: 0
+                                                          ,y: 0 - s} : _U.eq(d,
+                                                     2) ? {_: {}
+                                                          ,x: s
+                                                          ,y: 0} : {_: {}
+                                                                   ,x: 0
+                                                                   ,y: s}]],
+                  g));
+               });
+            });
+         });
+      }));
+   });
    var input = $Signal.mergeMany(_L.fromArray([A2($Signal._op["<~"],
                                               function ($) {
                                                  return Arrows($XY.map($Basics.toFloat)($));
@@ -2033,11 +2020,7 @@ Elm.Elman.make = function (_elm) {
                                               $Keyboard.space)
                                               ,A2($Signal._op["<~"],
                                               Tick,
-                                              $Time.fps(30))]));
-   var backColor = A3($Color.rgb,
-   255,
-   160,
-   214);
+                                              $Time.fps(gameFps))]));
    var gameDim = A2($XY._op["|*"],
    {_: {},x: 960,y: 540},
    0.5);
@@ -2102,41 +2085,50 @@ Elm.Elman.make = function (_elm) {
       var $ = _v6,
       player = $.player,
       tick = $.tick,
-      ghosts = $.ghosts;
-      var wrapped = wrappedPos(player);
+      ghosts = $.ghosts,
+      grace = $.grace;
       return A2($StateM._op[">>."],
-      A2($StateM._op[":="],
-      A2($Lens._op["=>"],
-      playerL,
-      formL),
+      A2($StateM.set,
+      graceL,
+      A2($Basics.max,0,grace - 1)),
       function () {
-         var n = $Array.length(playerForms);
-         return A2($Array.get,
-         A2($Basics._op["%"],
-         tick / 4 | 0,
-         n),
-         playerForms);
-      }()),
-      A2($StateM.when,
-      $List.any(function (ghost) {
-         return A2($List.any,
-         collides(ghost),
-         wrapped);
-      })(ghosts),
-      function (_v7) {
-         var $ = _v7;
+         var wrapped = wrappedPos(player);
          return A2($StateM._op[">>."],
-         A2($StateM._op[":>"],
-         livesL,
-         F2(function (x,y) {
-            return x + y;
-         })(-1)),
          A2($StateM._op[":="],
          A2($Lens._op["=>"],
          playerL,
-         posL),
-         {_: {},x: 0,y: 0}));
-      }));
+         formL),
+         function () {
+            var n = $Array.length(playerForms);
+            return $Maybe.map(_U.eq(A2($Bitwise.and,
+            grace / 4 | 0,
+            1),
+            0) ? $Basics.identity : $Graphics$Collage.scale(0.7))(A2($Array.get,
+            A2($Basics._op["%"],
+            tick / 4 | 0,
+            n),
+            playerForms));
+         }()),
+         A2($StateM.when,
+         _U.eq(grace,
+         0) && $List.any(function (ghost) {
+            return A2($List.any,
+            collides(ghost),
+            wrapped);
+         })(ghosts),
+         function (_v7) {
+            var $ = _v7;
+            return A2($StateM._op[">>."],
+            A2($StateM._op[":>"],
+            livesL,
+            F2(function (x,y) {
+               return x + y;
+            })(-1)),
+            A2($StateM._op[":="],
+            graceL,
+            gracePeriod));
+         }));
+      }());
    });
    var updateBerriesM = A2($StateM._op[">>="],
    $StateM.getState,
@@ -2173,65 +2165,66 @@ Elm.Elman.make = function (_elm) {
       _U.badCase($moduleName,
       "bugs in reporting the exact location right now");
    };
-   var updateLevelM = A2($StateM._op[">>="],
-   $StateM.getState,
+   var gxy = A2($Random.pair,
+   A2($Random.$float,
+   0 - gameDim.x,
+   gameDim.x),
+   A2($Random.$float,
+   0 - gameDim.y,
+   gameDim.y));
+   var addGhostM = A2($StateM._op[">>="],
+   rnd(gxy),
    function (_v11) {
       var $ = _v11,
-      berries = $.berries,
-      level = $.level;
+      x = $._0,
+      y = $._1;
+      return A2($StateM.upd,
+      ghostsL,
+      F2(function (x,y) {
+         return A2($List._op["::"],
+         x,
+         y);
+      })({_: {}
+         ,dim: {_: {},x: 16,y: 16}
+         ,form: $Maybe.Nothing
+         ,nextAt: 0
+         ,pos: {_: {},x: x,y: y}
+         ,rot: 0
+         ,spd: {_: {},x: 0,y: 0}}));
+   });
+   var addBerryM = A2($StateM._op[">>="],
+   rnd(gxy),
+   function (_v12) {
+      var $ = _v12,
+      x = $._0,
+      y = $._1;
+      return A2($StateM.upd,
+      berriesL,
+      F2(function (x,y) {
+         return A2($List._op["::"],
+         x,
+         y);
+      })({_: {}
+         ,dim: {_: {},x: 16,y: 16}
+         ,form: $Maybe.Just(berryForm)
+         ,pos: {_: {},x: x,y: y}
+         ,rot: 0}));
+   });
+   var updateLevelM = A2($StateM._op[">>="],
+   $StateM.getState,
+   function (_v13) {
+      var $ = _v13,
+      berries = $.berries;
       return A2($StateM.when,
       $List.isEmpty(berries),
-      function (_v12) {
-         var $ = _v12;
-         var gxys = $Random.list(level)(A2($Random.pair,
-         A2($Random.$float,
-         0 - gameDim.x,
-         gameDim.x),
-         A2($Random.$float,
-         0 - gameDim.y,
-         gameDim.y)));
+      function (_v14) {
+         var $ = _v14;
          return A2($StateM._op[">>="],
-         rnd(gxys),
-         function (berryXYs) {
-            return A2($StateM._op[">>="],
-            rnd(gxys),
-            function (ghostXYs) {
-               var ghost = function (_v13) {
-                  var $ = _v13,
-                  x = $._0,
-                  y = $._1;
-                  return {_: {}
-                         ,dim: {_: {},x: 16,y: 16}
-                         ,form: $Maybe.Nothing
-                         ,nextAt: 10
-                         ,pos: {_: {},x: x,y: y}
-                         ,rot: 0
-                         ,spd: {_: {},x: 0,y: 0}};
-               };
-               var berry = function (_v14) {
-                  var $ = _v14,
-                  x = $._0,
-                  y = $._1;
-                  return {_: {}
-                         ,dim: {_: {},x: 16,y: 16}
-                         ,form: $Maybe.Just(berryForm)
-                         ,pos: {_: {},x: x,y: y}
-                         ,rot: 0};
-               };
-               return A2($StateM._op[">>."],
-               A2($StateM._op[">>."],
-               A2($StateM.upd,
-               levelL,
-               F2(function (x,y) {
-                  return x + y;
-               })(1)),
-               A2($StateM._op[":="],
-               berriesL,
-               $List.map(berry)(berryXYs))),
-               A2($StateM._op[":="],
-               ghostsL,
-               $List.map(ghost)(ghostXYs)));
-            });
+         A2($StateM._op[">>."],
+         addGhostM,
+         $StateM.get(ghostsL)),
+         function ($) {
+            return $StateM.repeat(addBerryM)($List.length($));
          });
       });
    });
@@ -2241,26 +2234,34 @@ Elm.Elman.make = function (_elm) {
       {case "InitSt":
          switch (input.ctor)
            {case "Space":
-              return PlaySt({_: {}
-                            ,berries: _L.fromArray([])
-                            ,ghosts: _L.fromArray([])
-                            ,level: 5
-                            ,lives: 3
-                            ,player: {_: {}
-                                     ,dim: {_: {},x: 16,y: 16}
-                                     ,form: $Maybe.Nothing
-                                     ,pos: {_: {},x: 0,y: 0}
-                                     ,rot: 0
-                                     ,spd: {_: {},x: 0,y: 0}}
-                            ,score: 0
-                            ,seed: $Random.initialSeed(3141592)
-                            ,tick: 0});}
-           return state;
+              return PlaySt($StateM.run(A2($StateM.repeat,
+                addGhostM,
+                4))({_: {}
+                    ,berries: _L.fromArray([])
+                    ,ghosts: _L.fromArray([])
+                    ,grace: gracePeriod
+                    ,lives: 3
+                    ,player: {_: {}
+                             ,dim: {_: {},x: 16,y: 16}
+                             ,form: $Maybe.Nothing
+                             ,pos: {_: {},x: 0,y: 0}
+                             ,rot: 0
+                             ,spd: {_: {},x: 0,y: 0}}
+                    ,score: 0
+                    ,seed: state._0.seed
+                    ,tick: 0}));}
+           return InitSt($StateM.run(A2($StateM._op[">>="],
+           rnd(A2($Random.$float,0,1)),
+           function (_v20) {
+              var _ = _v20;
+              return $StateM.$return({ctor: "_Tuple0"});
+           }))(state._0));
          case "PlaySt":
          return function (play) {
               return _U.eq(play.lives,
               0) ? InitSt({_: {}
-                          ,score: $Maybe.Just(play.score)}) : PlaySt(play);
+                          ,score: $Maybe.Just(play.score)
+                          ,seed: play.seed}) : PlaySt(play);
            }($StateM.run(function () {
               switch (input.ctor)
               {case "Arrows":
@@ -2285,9 +2286,11 @@ Elm.Elman.make = function (_elm) {
       _U.badCase($moduleName,
       "bugs in reporting the exact location right now");
    });
-   var state = A2($Signals.foldpFrom,
-   init,
-   update)(input);
+   var state = A2($Signal.foldp,
+   update,
+   InitSt({_: {}
+          ,score: $Maybe.Nothing
+          ,seed: $Random.initialSeed(3141592)}))(input);
    var viewBack = $Graphics$Collage.filled(backColor)(A2($XY.curryTo,
    $Graphics$Collage.rect,
    A2($XY._op["|*"],gameDim,2)));
@@ -2320,15 +2323,15 @@ Elm.Elman.make = function (_elm) {
             return _L.fromArray([viewBack
                                 ,$Graphics$Collage.text($Text.fromString("Press SPACE to start!"))
                                 ,function () {
-                                   var _v27 = state._0.score;
-                                   switch (_v27.ctor)
+                                   var _v28 = state._0.score;
+                                   switch (_v28.ctor)
                                    {case "Just":
                                       return $XY.move({_: {}
                                                       ,x: 0
                                                       ,y: -30})($Graphics$Collage.text($Text.fromString(A2($Basics._op["++"],
                                         "Previous player got ",
                                         A2($Basics._op["++"],
-                                        $Basics.toString(_v27._0),
+                                        $Basics.toString(_v28._0),
                                         " points.")))));
                                       case "Nothing":
                                       return $Graphics$Collage.group(_L.fromArray([]));}
@@ -2338,8 +2341,8 @@ Elm.Elman.make = function (_elm) {
             case "PlaySt":
             return _L.fromArray([viewBack
                                 ,$Graphics$Collage.group($List.map(viewSprite)(state._0.berries))
-                                ,viewSprite(state._0.player)
                                 ,$Graphics$Collage.group($List.map(viewSprite)(state._0.ghosts))
+                                ,viewSprite(state._0.player)
                                 ,viewScoreAndLives(state._0)]);}
          _U.badCase($moduleName,
          "bugs in reporting the exact location right now");
@@ -2350,14 +2353,15 @@ Elm.Elman.make = function (_elm) {
    state);
    _elm.Elman.values = {_op: _op
                        ,gameDim: gameDim
+                       ,gameFps: gameFps
+                       ,gracePeriod: gracePeriod
                        ,backColor: backColor
                        ,Arrows: Arrows
                        ,Space: Space
                        ,Tick: Tick
-                       ,Play: Play
-                       ,Init: Init
                        ,InitSt: InitSt
                        ,PlaySt: PlaySt
+                       ,Seed$: Seed$
                        ,Pos$: Pos$
                        ,Dim$: Dim$
                        ,Spd$: Spd$
@@ -2368,8 +2372,8 @@ Elm.Elman.make = function (_elm) {
                        ,berriesL: berriesL
                        ,scoreL: scoreL
                        ,tickL: tickL
-                       ,levelL: levelL
                        ,livesL: livesL
+                       ,graceL: graceL
                        ,seedL: seedL
                        ,formL: formL
                        ,posL: posL
@@ -2377,10 +2381,12 @@ Elm.Elman.make = function (_elm) {
                        ,wrapPos: wrapPos
                        ,wrappedPos: wrappedPos
                        ,playerForms: playerForms
-                       ,init: init
                        ,updateArrowsM: updateArrowsM
                        ,berryForm: berryForm
                        ,ghostForms: ghostForms
+                       ,gxy: gxy
+                       ,addGhostM: addGhostM
+                       ,addBerryM: addBerryM
                        ,updateLevelM: updateLevelM
                        ,updateTickM: updateTickM
                        ,updatePhysical: updatePhysical
@@ -10397,34 +10403,6 @@ Elm.Signal.make = function (_elm) {
                         ,Mailbox: Mailbox};
    return _elm.Signal.values;
 };
-Elm.Signals = Elm.Signals || {};
-Elm.Signals.make = function (_elm) {
-   "use strict";
-   _elm.Signals = _elm.Signals || {};
-   if (_elm.Signals.values)
-   return _elm.Signals.values;
-   var _op = {},
-   _N = Elm.Native,
-   _U = _N.Utils.make(_elm),
-   _L = _N.List.make(_elm),
-   $moduleName = "Signals",
-   $Basics = Elm.Basics.make(_elm),
-   $List = Elm.List.make(_elm),
-   $Maybe = Elm.Maybe.make(_elm),
-   $Result = Elm.Result.make(_elm),
-   $Signal = Elm.Signal.make(_elm);
-   var foldpFrom = F3(function (s,
-   x2s2s,
-   xs) {
-      return A3($Signal.foldp,
-      x2s2s,
-      s,
-      xs);
-   });
-   _elm.Signals.values = {_op: _op
-                         ,foldpFrom: foldpFrom};
-   return _elm.Signals.values;
-};
 Elm.StateM = Elm.StateM || {};
 Elm.StateM.make = function (_elm) {
    "use strict";
@@ -10508,6 +10486,15 @@ Elm.StateM.make = function (_elm) {
          var $ = _v4;
          return yS;
       });
+   });
+   var repeat = F2(function (uS,
+   n) {
+      return _U.cmp(0,
+      n) < 0 ? A2(_op[">>."],
+      uS,
+      A2(repeat,
+      uS,
+      n - 1)) : $return({ctor: "_Tuple0"});
    });
    _op[">=>"] = F3(function (x2yS,
    y2zS,
@@ -10595,7 +10582,8 @@ Elm.StateM.make = function (_elm) {
                         ,mapM: mapM
                         ,filterM: filterM
                         ,delay: delay
-                        ,when: when};
+                        ,when: when
+                        ,repeat: repeat};
    return _elm.StateM.values;
 };
 Elm.String = Elm.String || {};
