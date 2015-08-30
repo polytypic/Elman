@@ -1913,7 +1913,14 @@ Elm.Elman.make = function (_elm) {
    var updateArrowsM = function (dir) {
       return $StateM.upd(playerL)(function (player) {
          return _U.replace([["spd"
-                            ,A2($XY._op["|*"],dir,4)]
+                            ,function () {
+                               var n = $XY.norm(dir);
+                               return _U.cmp(n,1) < 0 ? {_: {}
+                                                        ,x: 0
+                                                        ,y: 0} : A2($XY._op["|*"],
+                               dir,
+                               5 / $Basics.sqrt(n));
+                            }()]
                            ,["rot"
                             ,_U.eq(dir.x,0) && _U.eq(dir.y,
                             0) ? player.rot : A2($Basics.atan2,
@@ -2187,18 +2194,13 @@ Elm.Elman.make = function (_elm) {
          posRaw,
          gameDim),
          {_: {},x: 1,y: -1});
-         var dir = A2($XY._op["|-|"],
+         var dir = wrapPos(A2($XY._op["|-|"],
          pos,
-         player.pos);
+         player.pos));
          return _U.cmp($XY.norm(dir),
          32 * 32) < 0 ? updateArrowsM({_: {}
                                       ,x: 0
-                                      ,y: 0}) : updateArrowsM($XY.map(function (e) {
-            return _U.cmp($Basics.abs(e),
-            0.5) < 0 ? 0 : e / $Basics.abs(e);
-         })(A2($XY._op["|/"],
-         dir,
-         $XY.sumWith($Basics.max)($XY.map($Basics.abs)(dir)))));
+                                      ,y: 0}) : updateArrowsM(dir);
       });
    };
    var gxy = A2($Random.pair,
