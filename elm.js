@@ -1756,6 +1756,7 @@ Elm.Elman.make = function (_elm) {
    $Lens = Elm.Lens.make(_elm),
    $List = Elm.List.make(_elm),
    $Maybe = Elm.Maybe.make(_elm),
+   $Mouse = Elm.Mouse.make(_elm),
    $Random = Elm.Random.make(_elm),
    $Result = Elm.Result.make(_elm),
    $Signal = Elm.Signal.make(_elm),
@@ -1953,6 +1954,9 @@ Elm.Elman.make = function (_elm) {
    var Space = function (a) {
       return {ctor: "Space",_0: a};
    };
+   var Click = function (a) {
+      return {ctor: "Click",_0: a};
+   };
    var Arrows = function (a) {
       return {ctor: "Arrows"
              ,_0: a};
@@ -2015,6 +2019,13 @@ Elm.Elman.make = function (_elm) {
                                                  return Arrows($XY.map($Basics.toFloat)($));
                                               },
                                               $Keyboard.arrows)
+                                              ,A2($Signal._op["<~"],
+                                              function ($) {
+                                                 return Click($XY.map($Basics.toFloat)($XY.ofPair($)));
+                                              },
+                                              A2($Signal.sampleOn,
+                                              $Mouse.clicks,
+                                              $Mouse.position))
                                               ,A2($Signal._op["<~"],
                                               Space,
                                               $Keyboard.space)
@@ -2165,6 +2176,31 @@ Elm.Elman.make = function (_elm) {
       _U.badCase($moduleName,
       "bugs in reporting the exact location right now");
    };
+   var updateClickM = function (posRaw) {
+      return A2($StateM._op[">>="],
+      $StateM.getState,
+      function (_v11) {
+         var $ = _v11,
+         player = $.player;
+         var pos = A2($XY._op["|*|"],
+         A2($XY._op["|-|"],
+         posRaw,
+         gameDim),
+         {_: {},x: 1,y: -1});
+         var dir = A2($XY._op["|-|"],
+         pos,
+         player.pos);
+         return _U.cmp($XY.norm(dir),
+         32 * 32) < 0 ? updateArrowsM({_: {}
+                                      ,x: 0
+                                      ,y: 0}) : updateArrowsM($XY.map(function (e) {
+            return _U.cmp($Basics.abs(e),
+            0.5) < 0 ? 0 : e / $Basics.abs(e);
+         })(A2($XY._op["|/"],
+         dir,
+         $XY.sumWith($Basics.max)($XY.map($Basics.abs)(dir)))));
+      });
+   };
    var gxy = A2($Random.pair,
    A2($Random.$float,
    0 - gameDim.x,
@@ -2174,8 +2210,8 @@ Elm.Elman.make = function (_elm) {
    gameDim.y));
    var addGhostM = A2($StateM._op[">>="],
    rnd(gxy),
-   function (_v11) {
-      var $ = _v11,
+   function (_v12) {
+      var $ = _v12,
       x = $._0,
       y = $._1;
       return A2($StateM.upd,
@@ -2194,8 +2230,8 @@ Elm.Elman.make = function (_elm) {
    });
    var addBerryM = A2($StateM._op[">>="],
    rnd(gxy),
-   function (_v12) {
-      var $ = _v12,
+   function (_v13) {
+      var $ = _v13,
       x = $._0,
       y = $._1;
       return A2($StateM.upd,
@@ -2212,13 +2248,13 @@ Elm.Elman.make = function (_elm) {
    });
    var updateLevelM = A2($StateM._op[">>="],
    $StateM.getState,
-   function (_v13) {
-      var $ = _v13,
+   function (_v14) {
+      var $ = _v14,
       berries = $.berries;
       return A2($StateM.when,
       $List.isEmpty(berries),
-      function (_v14) {
-         var $ = _v14;
+      function (_v15) {
+         var $ = _v15;
          return A2($StateM._op[">>="],
          A2($StateM._op[">>."],
          addGhostM,
@@ -2232,28 +2268,34 @@ Elm.Elman.make = function (_elm) {
    state) {
       switch (state.ctor)
       {case "InitSt":
-         switch (input.ctor)
-           {case "Space":
+         var begin = function (_v19) {
+              var $ = _v19;
               return PlaySt($StateM.run(A2($StateM.repeat,
-                addGhostM,
-                4))({_: {}
-                    ,berries: _L.fromArray([])
-                    ,ghosts: _L.fromArray([])
-                    ,grace: gracePeriod
-                    ,lives: 3
-                    ,player: {_: {}
-                             ,dim: {_: {},x: 16,y: 16}
-                             ,form: $Maybe.Nothing
-                             ,pos: {_: {},x: 0,y: 0}
-                             ,rot: 0
-                             ,spd: {_: {},x: 0,y: 0}}
-                    ,score: 0
-                    ,seed: state._0.seed
-                    ,tick: 0}));}
+              addGhostM,
+              4))({_: {}
+                  ,berries: _L.fromArray([])
+                  ,ghosts: _L.fromArray([])
+                  ,grace: gracePeriod
+                  ,lives: 3
+                  ,player: {_: {}
+                           ,dim: {_: {},x: 16,y: 16}
+                           ,form: $Maybe.Nothing
+                           ,pos: {_: {},x: 0,y: 0}
+                           ,rot: 0
+                           ,spd: {_: {},x: 0,y: 0}}
+                  ,score: 0
+                  ,seed: state._0.seed
+                  ,tick: 0}));
+           };
+           switch (input.ctor)
+           {case "Click":
+              return begin({ctor: "_Tuple0"});
+              case "Space":
+              return begin({ctor: "_Tuple0"});}
            return InitSt($StateM.run(A2($StateM._op[">>="],
            rnd(A2($Random.$float,0,1)),
-           function (_v20) {
-              var _ = _v20;
+           function (_v23) {
+              var _ = _v23;
               return $StateM.$return({ctor: "_Tuple0"});
            }))(state._0));
          case "PlaySt":
@@ -2266,6 +2308,8 @@ Elm.Elman.make = function (_elm) {
               switch (input.ctor)
               {case "Arrows":
                  return updateArrowsM(input._0);
+                 case "Click":
+                 return updateClickM(input._0);
                  case "Space":
                  return $StateM.$return({ctor: "_Tuple0"});
                  case "Tick":
@@ -2323,15 +2367,15 @@ Elm.Elman.make = function (_elm) {
             return _L.fromArray([viewBack
                                 ,$Graphics$Collage.text($Text.fromString("Press SPACE to start!"))
                                 ,function () {
-                                   var _v28 = state._0.score;
-                                   switch (_v28.ctor)
+                                   var _v32 = state._0.score;
+                                   switch (_v32.ctor)
                                    {case "Just":
                                       return $XY.move({_: {}
                                                       ,x: 0
                                                       ,y: -30})($Graphics$Collage.text($Text.fromString(A2($Basics._op["++"],
                                         "Previous player got ",
                                         A2($Basics._op["++"],
-                                        $Basics.toString(_v28._0),
+                                        $Basics.toString(_v32._0),
                                         " points.")))));
                                       case "Nothing":
                                       return $Graphics$Collage.group(_L.fromArray([]));}
@@ -2357,6 +2401,7 @@ Elm.Elman.make = function (_elm) {
                        ,gracePeriod: gracePeriod
                        ,backColor: backColor
                        ,Arrows: Arrows
+                       ,Click: Click
                        ,Space: Space
                        ,Tick: Tick
                        ,InitSt: InitSt
@@ -2382,6 +2427,7 @@ Elm.Elman.make = function (_elm) {
                        ,wrappedPos: wrappedPos
                        ,playerForms: playerForms
                        ,updateArrowsM: updateArrowsM
+                       ,updateClickM: updateClickM
                        ,berryForm: berryForm
                        ,ghostForms: ghostForms
                        ,gxy: gxy
@@ -3845,6 +3891,37 @@ Elm.Maybe.make = function (_elm) {
                        ,Just: Just
                        ,Nothing: Nothing};
    return _elm.Maybe.values;
+};
+Elm.Mouse = Elm.Mouse || {};
+Elm.Mouse.make = function (_elm) {
+   "use strict";
+   _elm.Mouse = _elm.Mouse || {};
+   if (_elm.Mouse.values)
+   return _elm.Mouse.values;
+   var _op = {},
+   _N = Elm.Native,
+   _U = _N.Utils.make(_elm),
+   _L = _N.List.make(_elm),
+   $moduleName = "Mouse",
+   $Basics = Elm.Basics.make(_elm),
+   $Native$Mouse = Elm.Native.Mouse.make(_elm),
+   $Signal = Elm.Signal.make(_elm);
+   var clicks = $Native$Mouse.clicks;
+   var isDown = $Native$Mouse.isDown;
+   var position = $Native$Mouse.position;
+   var x = A2($Signal.map,
+   $Basics.fst,
+   position);
+   var y = A2($Signal.map,
+   $Basics.snd,
+   position);
+   _elm.Mouse.values = {_op: _op
+                       ,position: position
+                       ,x: x
+                       ,y: y
+                       ,isDown: isDown
+                       ,clicks: clicks};
+   return _elm.Mouse.values;
 };
 Elm.Native.Array = {};
 Elm.Native.Array.make = function(localRuntime) {
@@ -6775,6 +6852,50 @@ Elm.Native.List.make = function(localRuntime) {
 	};
 	return localRuntime.Native.List.values = Elm.Native.List.values;
 
+};
+
+Elm.Native = Elm.Native || {};
+Elm.Native.Mouse = {};
+Elm.Native.Mouse.make = function(localRuntime) {
+
+	localRuntime.Native = localRuntime.Native || {};
+	localRuntime.Native.Mouse = localRuntime.Native.Mouse || {};
+	if (localRuntime.Native.Mouse.values)
+	{
+		return localRuntime.Native.Mouse.values;
+	}
+
+	var NS = Elm.Native.Signal.make(localRuntime);
+	var Utils = Elm.Native.Utils.make(localRuntime);
+
+	var position = NS.input('Mouse.position', Utils.Tuple2(0,0));
+
+	var isDown = NS.input('Mouse.isDown', false);
+
+	var clicks = NS.input('Mouse.clicks', Utils.Tuple0);
+
+	var node = localRuntime.isFullscreen()
+		? document
+		: localRuntime.node;
+
+	localRuntime.addListener([clicks.id], node, 'click', function click() {
+		localRuntime.notify(clicks.id, Utils.Tuple0);
+	});
+	localRuntime.addListener([isDown.id], node, 'mousedown', function down() {
+		localRuntime.notify(isDown.id, true);
+	});
+	localRuntime.addListener([isDown.id], node, 'mouseup', function up() {
+		localRuntime.notify(isDown.id, false);
+	});
+	localRuntime.addListener([position.id], node, 'mousemove', function move(e) {
+		localRuntime.notify(position.id, Utils.getXY(e));
+	});
+
+	return localRuntime.Native.Mouse.values = {
+		position: position,
+		isDown: isDown,
+		clicks: clicks
+	};
 };
 
 Elm.Native.Port = {};
@@ -11150,6 +11271,11 @@ Elm.XY.make = function (_elm) {
    $Maybe = Elm.Maybe.make(_elm),
    $Result = Elm.Result.make(_elm),
    $Signal = Elm.Signal.make(_elm);
+   var flip = function (r) {
+      return _U.replace([["x",r.y]
+                        ,["y",r.x]],
+      r);
+   };
    _op["|<=|"] = F2(function (l,
    r) {
       return _U.cmp(l.x,
@@ -11225,16 +11351,21 @@ Elm.XY.make = function (_elm) {
       v,
       ofScalar(s));
    });
-   _op["|/"] = F2(function (v,s) {
-      return A2(_op["|*"],
-      v,
-      1.0 / s);
-   });
    _op["*|"] = F2(function (s,v) {
       return A2(_op["|*|"],
       ofScalar(s),
       v);
    });
+   _op["|/"] = F2(function (v,s) {
+      return A2(_op["|/|"],
+      v,
+      ofScalar(s));
+   });
+   var unit = function (v) {
+      return A2(_op["|/"],
+      v,
+      abs(v));
+   };
    var ofPair = function (_v1) {
       var $ = _v1,
       x = $._0,
@@ -11275,6 +11406,8 @@ Elm.XY.make = function (_elm) {
                     ,dot: dot
                     ,norm: norm
                     ,abs: abs
-                    ,neg: neg};
+                    ,neg: neg
+                    ,flip: flip
+                    ,unit: unit};
    return _elm.XY.values;
 };
