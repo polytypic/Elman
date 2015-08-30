@@ -57,7 +57,7 @@ type alias Bop s l r = XY' s l -> XY' s r -> XY s
 (*|) s v = ofScalar s |*| v
 
 (|/): XY' Float r -> Float -> XY Float
-(|/) v s = v |* (1.0 / s)
+(|/) v s = v |/| ofScalar s
 
 (|<|): XY' number l -> XY' number r -> Bool
 (|<|) l r = l.x < r.x && l.y < r.y
@@ -76,3 +76,9 @@ abs v = norm v |> sqrt
 
 neg: XY number -> XY number
 neg = map ((*) -1)
+
+flip: XY' x r -> XY' x r
+flip r = { r | x <- r.y, y <- r.x }
+
+unit: XY' Float r -> XY Float
+unit v = v |/ abs v
