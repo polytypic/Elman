@@ -8,7 +8,6 @@ import Graphics.Element as Element exposing (Element)
 import Keyboard
 import Random
 import Signal exposing ((<~), (~))
-import Signals
 import Text
 import Time exposing (Time)
 import XY exposing (XY, (|*), (|*|), (|-|), (|+|), (|<|))
@@ -38,17 +37,16 @@ type Event
 --------------------------------------------------------------------------------
 
 type alias Play =
-  { player: Player
-  , ghosts: List Ghost
-  , berries: List Berry
-  , score: Int
-  , lives: Int
-  , tick: Int
-  , seed: Random.Seed
-  , level: Int }
+  Seed' { player: Player
+        , ghosts: List Ghost
+        , berries: List Berry
+        , score: Int
+        , lives: Int
+        , tick: Int
+        , level: Int }
 
 type alias Init =
-  { score: Maybe Int }
+  Seed' { score: Maybe Int }
 
 type State
   = InitSt Init
@@ -58,6 +56,7 @@ type alias Player = Pos' (Dim' (Rot' (Form' (Spd' {}))))
 type alias Ghost = Pos' (Dim' (Rot' (Form' (Spd' {nextAt: Int}))))
 type alias Berry = Pos' (Dim' (Rot' (Form' {})))
 
+type alias Seed' r = {r | seed: Random.Seed }
 type alias Pos' r = {r | pos: Pos}
 type alias Dim' r = {r | dim: Dir}
 type alias Spd' r = {r | spd: Dir}
@@ -141,11 +140,6 @@ playerForms =
 
 --------------------------------------------------------------------------------
 
-init: State
-init = InitSt {score = Nothing}
-
---------------------------------------------------------------------------------
-
 updateArrowsM: Dir -> StateM Play ()
 updateArrowsM dir =
   StateM.upd playerL <| \player ->
@@ -153,7 +147,7 @@ updateArrowsM dir =
   | spd <- dir |* 4
   , rot <- if dir.x == 0 && dir.y == 0
            then player.rot
-           else atan2 -dir.y -dir.x}
+           else atan2 -dir.y -dir.x }
 
 --
 
@@ -273,20 +267,25 @@ update input state =
     InitSt init ->
       case input of
         Space _ ->
-          PlaySt { player = { pos = {x = 0, y = 0}
-                            , spd = {x = 0, y = 0}
-                            , dim = {x = 16, y = 16}
-                            , rot = 0
-                            , form = Nothing }
-                 , ghosts = []
-                 , berries = []
-                 , score = 0
-                 , lives = 3
-                 , tick = 0
-                 , seed = Random.initialSeed 3141592
-                 , level = 5 }
+          { player = { pos = {x = 0, y = 0}
+                     , spd = {x = 0, y = 0}
+                     , dim = {x = 16, y = 16}
+                     , rot = 0
+                     , form = Nothing }
+          , ghosts = []
+          , berries = []
+          , score = 0
+          , lives = 3
+          , tick = 0
+          , seed = init.seed
+          , level = 5 }
+          |> StateM.run updateLevelM
+          |> PlaySt
         _ ->
-          state
+          init
+          |> StateM.run (Random.float 0 1 |> rnd >>= \_ ->
+                         StateM.return ())
+          |> InitSt
     PlaySt play ->
       play
       |> StateM.run (case input of
@@ -303,7 +302,8 @@ update input state =
                          >>. updateBerriesM)
       |> \play ->
            if play.lives == 0 then
-             InitSt {score = Just play.score}
+             InitSt { seed = play.seed
+                    , score = Just play.score }
            else
              PlaySt play
 
@@ -366,7 +366,9 @@ main = view <~ state
 state: Signal State
 state =
   input
-  |> Signals.foldpFrom init update
+  |> Signal.foldp update
+       (InitSt { seed = Random.initialSeed 3141592
+               , score = Nothing })
 
 --------------------------------------------------------------------------------
 
