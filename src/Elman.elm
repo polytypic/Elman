@@ -156,7 +156,10 @@ updateArrowsM: Dir -> StateM Play ()
 updateArrowsM dir =
   StateM.upd playerL <| \player ->
   { player
-  | spd <- dir |* 4
+  | spd <- let n = XY.norm dir in
+           if n < 1
+           then {x = 0, y = 0}
+           else dir |* (5 / sqrt n)
   , rot <- if dir.x == 0 && dir.y == 0
            then player.rot
            else atan2 -dir.y -dir.x }
@@ -165,12 +168,10 @@ updateClickM: Pos -> StateM Play ()
 updateClickM posRaw =
   StateM.getState >>= \{player} ->
   let pos = (posRaw |-| gameDim) |*| {x = 1, y = -1}
-      dir = pos |-| player.pos in
-  if XY.norm dir < 32*32 then
-    updateArrowsM {x = 0, y = 0}
-  else (dir |/ (dir |> XY.map abs |> XY.sumWith max))
-       |> XY.map (\e -> if abs e < 0.5 then 0 else e / abs e)
-       |> updateArrowsM
+      dir = pos |-| player.pos |> wrapPos in
+  if XY.norm dir < 32*32
+  then updateArrowsM {x = 0, y = 0}
+  else updateArrowsM dir
 
 --
 
